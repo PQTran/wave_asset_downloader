@@ -2,6 +2,7 @@
 INPUT_FILE="./data/share-links.txt"
 OUTPUT_FILE="./output/stream-links.txt"
 OUTPUT_ASSETS_DIR="./output/assets"
+OUTPUT_TEMP_ASSETS_DIR="./output/assets/temp"
 URL_CONVERTER_BIN="./lib/wave_url_converter"
 URL_REGEX="http[^ ]*"
 LIMIT_SPEED
@@ -143,6 +144,11 @@ function __get_asset_file_name {
     echo "$OUTPUT_ASSETS_DIR/${id}.mp4"
 }
 
+function __get_temp_asset_file_name {
+    local id=$1
+    echo "$OUTPUT_TEMP_ASSETS_DIR/${id}.mp4"
+}
+
 function __append_block_extension {
     local file_name=$1
     local num=$2
@@ -150,18 +156,17 @@ function __append_block_extension {
     echo "${file_name}.part${num}"
 }
 
-# !!! isolate download dir
 function __download_uri_block {
     local uri=$1
     local asset_id=$2
     local byte_range=$3
     local block_num=$4
 
-    local asset_file
-    asset_file="$(__get_asset_file_name "$asset_id")"
+    local temp_asset_file
+    temp_asset_file="$(__get_temp_asset_file_name "$asset_id")"
 
     local block_name
-    block_name="$(__append_block_extension "$asset_file" "$block_num")"
+    block_name="$(__append_block_extension "$temp_asset_file" "$block_num")"
 
     if [[ -e "$block_name" ]]; then
         echo "File-block exists, skipping: $block_name"
@@ -174,20 +179,23 @@ function __download_uri_block {
 function __combine_uri_blocks {
     local asset_id=$1
 
-    local asset_file
-    asset_file="$(__get_asset_file_name "$asset_id")"
+    local temp_asset_file
+    temp_asset_file="$(__get_temp_asset_file_name "$asset_id")"
 
-    cat "$asset_file"* > "$asset_file"
+    local output_file
+    output_file="$(__get_asset_file_name "$asset_id")"
+
+    cat "$temp_asset_file"* > "$output_file"
 }
 
 function __clean_up_uri_blocks {
     local asset_id=$1
 
-    local asset_file
-    asset_file="$(__get_asset_file_name "$asset_id")"
+    local temp_asset_file
+    temp_asset_file="$(__get_temp_asset_file_name "$asset_id")"
 
     local asset_block
-    asset_block="$(__append_block_extension "$asset_file")"
+    asset_block="$(__append_block_extension "$temp_asset_file")"
     rm "$asset_block"*
 }
 
@@ -213,7 +221,7 @@ function download_uri_in_blocks {
     done 3<<< "$bytes_ranges"
 
     if [[ "$success" == "true" ]]; then
-        echo "combine now"
+        echo "Combining asset parts"
         __combine_uri_blocks "$asset_id" &&
             __clean_up_uri_blocks "$asset_id"
     fi
