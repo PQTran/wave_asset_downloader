@@ -5,8 +5,8 @@ OUTPUT_ASSETS_DIR="./output/assets"
 OUTPUT_TEMP_ASSETS_DIR="./output/assets/temp"
 URL_CONVERTER_BIN="./lib/wave_url_converter"
 URL_REGEX="http[^ ]*"
-LIMIT_SPEED
-PARALLEL_PROCESS
+LIMIT_SPEED=""
+PARALLEL_PROCESS=""
 
 function print_save_output_prompt {
     echo "Do you want to save the output?"
@@ -172,7 +172,17 @@ function __download_uri_block {
         echo "File-block exists, skipping: $block_name"
     else
         echo "Downloading: $block_name"
-        curl --progress-bar --create-dirs --range "$byte_range" -o "$block_name" "$uri"
+
+        local arg_list
+        arg_list="--progress-bar --create-dirs"
+        arg_list+=" --range \"$byte_range\""
+        arg_list+=" -o \"$block_name\""
+
+        if [[ -n "$LIMIT_SPEED" ]]; then
+            arg_list+=" --limit-rate $LIMIT_SPEED"
+        fi
+
+        eval "curl" "$arg_list" "$uri"
     fi
 }
 
@@ -223,7 +233,8 @@ function download_uri_in_blocks {
     if [[ "$success" == "true" ]]; then
         echo "Combining asset parts"
         __combine_uri_blocks "$asset_id" &&
-            __clean_up_uri_blocks "$asset_id"
+            __clean_up_uri_blocks "$asset_id" &&
+            echo "Done combining asset parts"
     fi
 }
 
@@ -256,6 +267,12 @@ function process_arg_flags {
             l)
                 # validate input to be of form [num]k
                 LIMIT_SPEED="$OPTARG"
+                [[ "$LIMIT_SPEED" =~ (^[0-9]+)([kKmMgG]$) ]]
+                if [[ -z "${BASH_REMATCH[1]}" ]] ||
+                       [[ -z "${BASH_REMATCH[2]}" ]]; then
+                    echo "Arg limit-speed used incorrectly. Ensure the format is: 500k"
+                    exit 1
+                fi
                 ;;
             p)
                 PARALLEL_PROCESS="$OPTARG"
