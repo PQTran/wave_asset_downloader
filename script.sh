@@ -161,6 +161,7 @@ function __download_uri_block {
     local asset_id=$2
     local byte_range=$3
     local block_num=$4
+    local silent=$5
 
     local temp_asset_file
     temp_asset_file="$(__get_temp_asset_file_name "$asset_id")"
@@ -177,6 +178,10 @@ function __download_uri_block {
         arg_list="--progress-bar --create-dirs"
         arg_list+=" --range \"$byte_range\""
         arg_list+=" -o \"$block_name\""
+
+        if [[ "$silent" == "true" ]]; then
+            arg_list+=" --silent"
+        fi
 
         if [[ -n "$LIMIT_SPEED" ]]; then
             arg_list+=" --limit-rate $LIMIT_SPEED"
@@ -217,10 +222,10 @@ function download_uri_in_blocks {
     content_length="$(__get_content_length "$uri")"
 
     local bytes_ranges
-    bytes_ranges="$(__partition_number_range 0 "$content_length" 10)"
+    bytes_ranges="$(__partition_number_range 0 "$content_length" 9)"
 
     local success="true"
-    local counter="0"
+    local counter="1"
 
     # fd 0 1 2 reserved for stdin, stdout, stderr
     while read -r -u 3 byte_range; do
@@ -279,6 +284,7 @@ function process_arg_flags {
                 ;;
             \?)
                 echo "Use: [-l] limit-speed, [-p] parallel-processes"
+                exit 1
                 ;;
         esac
     done
